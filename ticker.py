@@ -6,9 +6,23 @@ class Ticker:
         self.queue = queue
         self.lcd = lcd
 
-    def display_loading(self):
+    def display_loading(self, event):
         self.games = []
-        # display loading text
+        i = 1
+
+        while True:
+            self.lcd.text(f"Loading{'.' * i}", 1)
+
+            if i < 3:
+                i += 1
+            else:
+                i = 1
+
+            time.sleep(0.5)
+
+            if event.is_set():
+                self.lcd.text("", 1)
+                return
 
     def update_with_games(self, games):
         self.games = games
