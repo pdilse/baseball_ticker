@@ -1,10 +1,10 @@
 import requests
 import threading
 import queue
-import time
 import RPi.GPIO as gpio
 from bs4 import BeautifulSoup
 from ticker import Ticker
+from game import Game
 from rpi_lcd import LCD
 
 button = 21
@@ -27,64 +27,48 @@ def main():
             event = threading.Event()
             loading_thread = threading.Thread(target=ticker.display_loading, args=(event,))
             loading_thread.start()
-
-            time.sleep(5)
+            games = get_game_data()
             event.set()
             loading_thread.join()
             button_enabled = True
-            ticker.update_with_games([])
+
+            if games:
+                ticker.update_with_games(games)
+            else:
+                ticker.update_with_error()
         except KeyboardInterrupt:
             destroy()
             exit()
 
 
 def get_game_data():
-    # url = "https://www.baseball-reference.com/boxes/"
-    #
-    # try:
-    #     response = requests.get(url)
-    #     soup = BeautifulSoup(response.text, 'html.parser')
-    #     games = soup.find_all("div", ["game_summary"])
-    #     print(f"{len(games)} games")
-    # except requests.exceptions.ConnectionError:
-    #     print("connection error")
-    return []
+    url = "https://www.baseball-reference.com/boxes/"
+    games = []
+
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        team_rows = soup.select("div.game_summary tr.loser,tr.winner")
+        i = 0
+
+        while i < len(team_rows):
+            away_row = team_rows[i]
+            home_row = team_rows[i + 1]
+            i += 2
+
+            away_team, away_score = get_team_and_score(away_row)
+            home_team, home_score = get_team_and_score(home_row)
+            game = Game(away_team, home_team, away_score, home_score)
+            games.append(game)
+    except requests.exceptions.ConnectionError:
+        print("connection error")
+    finally:
+        return games
 
 
-def get_team_abbreviation(team):
-    teams = {
-        "Arizona Diamondbacks": "ARI",
-        "Atlanta Braves": "ATL",
-        "Baltimore Orioles": "BAL",
-        "Boston Red Sox": "BOS",
-        "Chicago Cubs": "CHC",
-        "Chicago White Sox": "CHW",
-        "Cincinnati Reds": "CIN",
-        "Cleveland Guardians": "CLE",
-        "Colorado Rockies": "COL",
-        "Detroit Tigers": "DET",
-        "Miami Marlins": "FLA",
-        "Houston Astros": "HOU",
-        "Kansas City Royals": "KAN",
-        "Los Angeles Angels": "LAA",
-        "Los Angeles Dodgers": "LAD",
-        "Milwaukee Brewers": "MIL",
-        "Minnesota Twins": "MIN",
-        "New York Mets": "NYM",
-        "New York Yankees": "NYY",
-        "Oakland Athletics": "OAK",
-        "Philadelphia Phillies": "PHI",
-        "Pittsburgh Pirates": "PIT",
-        "San Francisco Giants": "SF",
-        "Seattle Mariners": "SEA",
-        "St. Louis Cardinals": "STL",
-        "Tampa Bay Rays": "TB",
-        "Texas Rangers": "TEX",
-        "Toronto Blue Jays": "TOR",
-        "Washington Nationals": "WAS"
-    }
-
-    return teams[team]
+def get_team_and_score(row):
+    cells = row.find_all("td")
+    return cells[0].getText(), cells[1].getText()
 
 
 def reload_games(channel):
