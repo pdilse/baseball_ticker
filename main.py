@@ -55,7 +55,6 @@ def get_game_data():
             away_row = team_rows[i]
             home_row = team_rows[i + 1]
             i += 2
-
             away_team, away_score = get_team_and_score(away_row)
             home_team, home_score = get_team_and_score(home_row)
             game = Game(away_team, home_team, away_score, home_score)
